@@ -40,7 +40,7 @@ def embedding_check(M, V):
 
     t2 = time.time()
     #print(f"Embedding check (c1) took {t2-t1:.8f} seconds to complete.")
-    return emb_sum*100
+    return emb_sum*10
 
 
 
@@ -65,7 +65,7 @@ def anomaly_check(M, V):
 
     anom_sum = np.sum(np.minimum(0, c2_TM-c2_V))
 
-    return anom_sum*10
+    return anom_sum*1
 
 def anomaly_check_strict(M, V):
     #M: CICY class from pyCICY
@@ -195,12 +195,12 @@ def cohom_euler_check(M, V, free_size):
 
     result += np.abs(tot_euler + 3*free_size)
 
-    for e1, e2 in itertools.combinations(V, 2):
-        l = np.add(list(e1), list(e2))
+    #for e1, e2 in itertools.combinations(V, 2):
+    #    l = np.add(list(e1), list(e2))
         # we round and convert to int otherwise floating point issues
-        index = np.round(M.line_co_euler(l)).astype(np.int16)
-        if index > 0:
-            result += 5
+    #    index = np.round(M.line_co_euler(l)).astype(np.int16)
+    #    if index > 0:
+    #        result += 5
 
 
     return -result*10
@@ -225,11 +225,11 @@ def equiv_check(M, V, free_size):
 
 def gamma_orbit(L, gamma):
     orbit = []
-    acted_L = tuple(np.matmul(gamma, L))
+    acted_L = tuple(np.matmul(L, gamma))
 
     while acted_L not in orbit:
         orbit.append(acted_L)
-        acted_L = tuple(np.matmul(gamma, np.array(acted_L)))
+        acted_L = tuple(np.matmul(np.array(acted_L), gamma))
     return orbit
 
 
@@ -250,7 +250,7 @@ def invariant_partition_or_penalty(V, penalty=-100):
             [0,0,0,1,0,0,0,0],  # J6 -> J4
             [0,0,0,0,0,0,1,0],  # J7 fixed
             [0,0,0,0,0,0,0,1],  # J8 fixed
-])
+        ])
     V_counter = collections.Counter(map(tuple, V))
     seen = set()
     partitions = []
@@ -303,7 +303,7 @@ def equiv_nontriv(M, V, free_size):
         if block_euler%free_size != 0:
             score -= 20
 
-    return score*5
+    return score*50
 
 
 #Genalg functions
@@ -356,3 +356,29 @@ def mutate_nested(ind, low, up, indpb):
     for row in ind:
         tools.mutUniformInt(row, low=low, up=up, indpb=indpb)
     return ind
+
+M_7862 = CICY([[1,2], [1,2], [1,2], [1,2]])
+
+M_7447 = CICY([[1,1,1], [1,1,1], [1,1,1], [1,1,1], [1,1,1]])
+
+M_5302 = CICY([[1,0,1,1], [1,0,1,1], [1,1,1,0], [1,1,1,0], [1,1,0,1], [1,1,0,1]])
+
+M_4071 = CICY([[1, 1, 1, 0, 0, 0, 0, 0, 0], [2, 0, 1, 1, 0, 0, 0, 1, 0], [1, 0, 0, 1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 0, 2, 0, 0, 0], 
+[1, 0, 0, 0, 1, 1, 0, 0, 0], [2, 1, 0, 0, 0, 0, 1, 0, 1], [3, 0, 0, 0, 1, 1, 0, 1, 1]])
+
+M_829 = CICY([[1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0], [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0], [2, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+    [2, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1], [2, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1], [2, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0]])
+
+def choose_eval_cert(M):
+
+    
+    if M == M_829:
+
+        return solution_to_graph829, evaluate_nontriv
+    
+    if M == M_4071:
+        
+        return solution_to_graphcert4071, evaluate_nontriv
+
+    
+    return solution_to_graphcert, evaluate

@@ -5,7 +5,7 @@ from wolframclient.language import wl, wlexpr
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-r = 2
+r = 4
 
 def wolfram_stability(model, M):
     r"""Use the wolfram Noptimize to numerically compute
@@ -185,7 +185,7 @@ def _index(self):
         return True
 
 
-#M = CICY([[1,1,1], [1,1,1], [1,1,1], [1,1,1], [1,1,1]])
+M = CICY([[1,1,1], [1,1,1], [1,1,1], [1,1,1], [1,1,1]])
 #M = CICY([[1,2], [1,2], [1,2], [1,2]])
 #M = CICY([[2, 1, 1, 1, 0, 0, 0, 0, 0], [1, 0, 0, 1, 0, 0, 0, 1, 0], 
 #    [1, 0, 0, 0, 0, 1, 0, 1, 0], [1, 0, 0, 0, 1, 0, 1, 0, 0], 
@@ -194,35 +194,172 @@ def _index(self):
 #M = CICY([[1, 1, 1, 0, 0, 0, 0, 0, 0], [2, 0, 1, 1, 0, 0, 0, 1, 0], [1, 0, 0, 1, 0, 0, 1, 0, 0], [1, 0, 0, 0, 0, 2, 0, 0, 0], 
 #        [1, 0, 0, 0, 1, 1, 0, 0, 0], [2, 1, 0, 0, 0, 0, 1, 0, 1], [3, 0, 0, 0, 1, 1, 0, 1, 1]])
 M = CICY([[1,0,1,1], [1,0,1,1], [1,1,1,0], [1,1,1,0], [1,1,0,1], [1,1,0,1]])
-M = CICY([[1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0], [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0], [2, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
-          [2, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1], [2, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1], [2, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0]])
+#M = CICY([[1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], [1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0], [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0], [2, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+#          [2, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1], [2, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1], [2, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0]])
+
+sols = np.load("solutionstest.npy")
 
 
-x = [[0,1,2,0,-1,-2,-3,2], [0,1,2,0,-1,-2,-3,2], [0,1,2,0,-1,-2,-3,2]]
 
-y = [[1,0,2,0,-1,-2,-3,2], [1,0,2,0,-1,-2,-3,2], [1,0,2,0,-1,-2,-3,2]] 
 
-t1 = solution_to_graph829(x)
+from typing import List, Optional, Tuple
+import matplotlib
+matplotlib.use("TkAgg")
 
-t2 = solution_to_graph829(y)
+Matrix = List[List[int]]
 
-sols = np.load("solutions.npy")
+def _copy_mat(m: Matrix) -> Matrix:
+    return [row.copy() for row in m]
 
-print(len(sols))
-count = 0
-for s in sols:
-    s = np.array(s)
+def local_repair_matrix(
+    initial: Matrix,                
+    max_iterations: int = 10000,
+    restarts: int = 5,
+    max_step: int = 1,              # max change per mutation (integer)
+    bounds: Optional[Tuple[int,int]] = None,  # (min_val, max_val) for each entry
+    seed: Optional[int] = None
+) -> Optional[Matrix]:
+    """
+    Local search to find a matrix `m` similar to `initial` with evaluate(m)[0] == 0.
+    Returns the found matrix or None if not found.
+    """
+    if seed is not None:
+        random.seed(seed)
 
-    x = solution_to_graph(s)
+    rows = len(initial)
+    if rows == 0:
+        raise ValueError("initial must be non-empty")
+    cols = len(initial[0])
+    for r in initial:
+        if len(r) != cols:
+            raise ValueError("initial must be rectangular (all rows same length)")
 
-    emb = _sun(s)
-    bian = _bianchi(s)
-    gen = _three_fermions(s)
-    index2 = _index_triplet(s)
-    index = _index(s)
-    higgs = _higgs_doublet(s)
+    # initial check
+    cur = _copy_mat(initial)
+    cur_val = evaluate(cur, M, 4)[0]
+    if cur_val == 0:
+        return cur
 
-    if emb and bian and gen and index2 and index and higgs:
-        count += 1
-print(count)
+    best = _copy_mat(cur)
+    best_score = abs(cur_val)
+
+    # Split iterations across restarts
+    iters_per_restart = max(1, max_iterations // max(1, restarts))
+
+    for restart in range(restarts):
+        current = _copy_mat(initial)
+        current_score = abs(evaluate(current, M, 4)[0])
+
+        for it in range(iters_per_restart):
+            # create neighbor by mutating a single element (row, col)
+            neighbor = _copy_mat(current)
+            r = random.randrange(rows)
+            c = random.randrange(cols)
+
+            # choose integer step in [-max_step, max_step] but not zero
+            step = random.randint(-max_step, max_step)
+            if step == 0:
+                step = random.choice([-1, 1])
+
+            new_val = neighbor[r][c] + step
+            if bounds is not None:
+                lo, hi = bounds
+                new_val = max(lo, min(hi, new_val))
+
+            neighbor[r][c] = new_val
+
+            val = evaluate(neighbor, M, 4)[0]
+
+            # success
+            if val == 0:
+                return neighbor
+
+            neighbor_score = abs(val)
+
+            # greedy acceptance: move to neighbor if it improves the score
+            if neighbor_score < current_score:
+                current = neighbor
+                current_score = neighbor_score
+                if current_score < best_score:
+                    best = _copy_mat(current)
+                    best_score = current_score
+
+        # optional: random small perturbation to escape local minima
+        # apply a random tweak to current before next restart
+        for _ in range(3):
+            rr = random.randrange(rows)
+            cc = random.randrange(cols)
+            step = random.choice([-1, 1])
+            if bounds is not None:
+                lo, hi = bounds
+                current[rr][cc] = max(lo, min(hi, current[rr][cc] + step))
+            else:
+                current[rr][cc] += step
+
+    # not found
+    return None
+
+def random_matrix(rows=4, cols=6, low=-8, high=8):
+    """Generate a random integer matrix of size rows×cols with entries in [low, high]."""
+    return [[random.randint(low, high) for _ in range(cols)] for _ in range(rows)]
+
+num_tests = len(sols)   # how many random matrices to test
+cols = 6
+
+results = []
+for i in range(num_tests):
+    print(f"Run {i+1}/{num_tests}")
+    m = sols[i]
+    start_val = evaluate(m, M, 4)[0]
+
+    sol = local_repair_matrix(
+        m,
+        max_iterations=10000,
+        restarts=5,
+        max_step=1,
+        bounds=(-3, 4)
+    )
+    success = sol is not None
+    results.append((start_val, success))
+
+# separate data for plotting
+start_vals = [r[0] for r in results]
+success_flags = [r[1] for r in results]
+
+# Plot
+plt.figure(figsize=(8,5))
+plt.scatter(
+    range(len(results)),
+    start_vals,
+    c=['green' if s else 'red' for s in success_flags],
+    s=80,
+    edgecolors='k'
+)
+plt.axhline(0, color='black', linestyle='--', linewidth=1)
+plt.xlabel("Test Index")
+plt.ylabel("Starting evaluate(mat)[0]")
+plt.title("Local Repair: Starting Value vs. Success (green=success, red=failure)")
+plt.show()
+
+check = False
+
+if check:
+    count = 0
+    for s in sols:
+        s = np.array(s)
+
+        #x = solution_to_graph(s)
+
+        #stab = _stability(s)
+
+        emb = _sun(s)
+        bian = _bianchi(s)
+        #gen = _three_fermions(s)
+        index2 = _index_triplet(s)
+        index = _index(s)
+        #higgs = _higgs_doublet(s)
+
+        if emb and bian and index2 and index:
+            count += 1
+    print(count)
 

@@ -197,10 +197,10 @@ def cohom_euler_check(M, V, free_size):
 
     #for e1, e2 in itertools.combinations(V, 2):
     #    l = np.add(list(e1), list(e2))
-        # we round and convert to int otherwise floating point issues
+    #    # we round and convert to int otherwise floating point issues
     #    index = np.round(M.line_co_euler(l)).astype(np.int16)
     #    if index > 0:
-    #        result += 5
+    #        result += 25
 
 
     return -result*10
@@ -234,23 +234,23 @@ def gamma_orbit(L, gamma):
 
 
 def invariant_partition_or_penalty(V, penalty=-100):
-    #Gamma = [[1, 0, 0, 0, 0, 0, 0],
-    #        [0, 0, 0, 0, 0, 1, 0],
-    #        [0, 0, 1, 0, 0, 0, 0],
-    #        [0, 0, 0, 1, 0, 0, 0],
-    #        [0, 0, 0, 0, 1, 0, 0],
-    #        [0, 1, 0, 0, 0, 0, 0],
-    #        [0, 0, 0, 0, 0, 0, 1]]
-    Gamma = np.array([
-            [0,1,0,0,0,0,0,0],  # J1 -> J2
-            [0,0,1,0,0,0,0,0],  # J2 -> J3
-            [1,0,0,0,0,0,0,0],  # J3 -> J1
-            [0,0,0,0,1,0,0,0],  # J4 -> J5
-            [0,0,0,0,0,1,0,0],  # J5 -> J6
-            [0,0,0,1,0,0,0,0],  # J6 -> J4
-            [0,0,0,0,0,0,1,0],  # J7 fixed
-            [0,0,0,0,0,0,0,1],  # J8 fixed
-        ])
+    Gamma = [[1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1]]
+    #Gamma = np.array([
+    #        [0,1,0,0,0,0,0,0],  # J1 -> J2
+    #        [0,0,1,0,0,0,0,0],  # J2 -> J3
+    #        [1,0,0,0,0,0,0,0],  # J3 -> J1
+    #        [0,0,0,0,1,0,0,0],  # J4 -> J5
+    #        [0,0,0,0,0,1,0,0],  # J5 -> J6
+    #        [0,0,0,1,0,0,0,0],  # J6 -> J4
+    #        [0,0,0,0,0,0,1,0],  # J7 fixed
+    #        [0,0,0,0,0,0,0,1],  # J8 fixed
+    #   ])
     V_counter = collections.Counter(map(tuple, V))
     seen = set()
     partitions = []
@@ -326,8 +326,9 @@ def evaluate(individual, M, free_size):
     equiv_test = equiv_check(M, ind, free_size=free_size)
 
     score = emb_test + anom_test + slope_test + cohom_test + equiv_test
+    passed = sum([emb_test==0, anom_test==0, slope_test==0, cohom_test==0, equiv_test==0])
 
-    return score,
+    return score, passed
 
 def evaluate_nontriv(individual, M, free_size):
 
@@ -340,22 +341,24 @@ def evaluate_nontriv(individual, M, free_size):
     equiv_test = equiv_nontriv(M, ind, free_size=free_size)
 
     score = emb_test + anom_test + slope_test + cohom_test + equiv_test
+    passed = sum([emb_test==0, anom_test==0, slope_test==0, cohom_test==0, equiv_test==0])
 
-    return score,
+    return score, passed
 
 
 #Nested mate
 def mate_nested(ind1, ind2):
 
     for row1, row2 in zip(ind1, ind2):
-        tools.cxTwoPoint(row1, row2)
+        tools.cxMessyOnePoint(row1, row2)
     return ind1, ind2
-
 
 def mutate_nested(ind, low, up, indpb):
     for row in ind:
         tools.mutUniformInt(row, low=low, up=up, indpb=indpb)
     return ind
+
+
 
 M_7862 = CICY([[1,2], [1,2], [1,2], [1,2]])
 

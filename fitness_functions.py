@@ -1,4 +1,4 @@
-from deap import base, creator, tools
+from deap import tools
 from pyCICY import CICY
 import time
 import itertools
@@ -82,21 +82,6 @@ def anomaly_check_strict(M, V):
     return -anom_sum
 
 
-#C3
-
-
-def slope_check_real(M, V):
-
-
-    is_stable = wolfram_stability(M, V)
-
-    slope_sum = 0
-
-    if not is_stable:
-        slope_sum -= 15
- 
-
-    return slope_sum
 
 
 def slope_check_article(M , V):

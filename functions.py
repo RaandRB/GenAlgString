@@ -1,9 +1,5 @@
-from pyCICY import CICY
 import numpy as np
-import matplotlib.pyplot as plt
 import pynauty
-from wolframclient.evaluation import WolframLanguageSession
-from wolframclient.language import wl, wlexpr
 
 
 def chern_second(M):
@@ -16,70 +12,27 @@ def chern_second(M):
     chern = np.einsum('rst,st -> r', M.triple, c2)
     return chern
 
-
-
-def wolfram_stability(M, model):
-    r"""Use the wolfram Noptimize to numerically compute
-    if the given model is stable somewhere in the Kähler cone
-
-    Parameters
-    ----------
-    model : np.array[5, M.len]
-        sum of line bundles
-    M : pyCICY.CICY
-        CICY object
-
-    Returns
-    -------
-    bool
-        True if stable else False
-    """
-    session = WolframLanguageSession("/usr/local/bin/WolframKernel")#kernel_loglevel=logging.ERROR
-    line_slope = []
-    for line in model:
-        tmp = M.line_slope()
-        for i in range(M.len):
-            tmp = tmp.subs({'m'+str(i): line[i]})
-        line_slope += [tmp]
-    str_slope = str(line_slope).replace('**', '^').replace('[','{').replace(']', '}')
-    str_cone = str(['t'+str(i)+'> 1' for i in range(M.len)]).replace('\'', '').replace('[','{').replace(']', '}')
-    str_vars = str(['t'+str(i) for i in range(M.len)]).replace('\'', '').replace('[','{').replace(']', '}')
-    success = False
-    full_string = 'NMinimize[Join[{{Plus @@ (#^2 & /@ {})}}, '.format(str_slope)
-    full_string += '{}],'.format(str_cone)
-    full_string += '{}, AccuracyGoal -> 20, PrecisionGoal -> 20, WorkingPrecision -> 20]'.format(str_vars)
-    optimize = wlexpr(full_string)
-    results = session.evaluate(optimize)
-    if np.allclose([0.], [results[0].__float__()], atol=0.01):
-        success = True
-    session.terminate()
-    return success
-
 def solution_to_graph(solution, low=-18, up=18):
-    """
-    Turn a solution (matrix of shape (num_vecs, n)) into a colored graph
-    where integers in [low, up] are explicitly represented as vertices.
-    """
 
     num_vecs = len(solution)
     n = len(solution[0])
     num_entries = num_vecs * n
     num_values = up - low + 1
 
-    # vertices = vecs + positions + entries + all possible values
+    #vertices = vecs + positions + entries + all possible values
     N = num_vecs + n + num_entries + num_values
     g = pynauty.Graph(number_of_vertices=N, directed=False)
 
-    # Index bookkeeping
+    #Index bookkeeping
     vec_offset = 0
     pos_offset = num_vecs
     entry_offset = pos_offset + n
     value_offset = entry_offset + num_entries
 
-    # Assign colors
-    # vecs = 0, positions = 1, entries = 2, values = 3
+    #Assign colors
+    #vecs = 0, positions = 1, entries = 2, values = 3
     colors = [0] * num_vecs + [1] * n + [2] * num_entries
-    # Partition
+    #Partition
     color_classes = {}
     for v, c in enumerate(colors):
         color_classes.setdefault(c, []).append(v)
@@ -112,10 +65,6 @@ def solution_to_graphcert(solution, low=-18, up=18):
     return pynauty.certificate(solution_to_graph(solution, low, up))
 
 def solution_to_graph4071(solution, low=-18, up=18):
-    """
-    Turn a solution (matrix of shape (num_vecs, n)) into a colored graph
-    where integers in [low, up] are explicitly represented as vertices.
-    """
 
     num_vecs = len(solution)
     n = len(solution[0])
@@ -123,21 +72,20 @@ def solution_to_graph4071(solution, low=-18, up=18):
     num_distinct_kähler = 3 # 1 2 1 1 1 2 3
     num_values = up - low + 1
 
-    # vertices = vecs + positions + entries + all possible values
+    #vertices = vecs + positions + entries + all possible values
     N = num_vecs + n + num_entries + num_values + num_distinct_kähler
     g = pynauty.Graph(number_of_vertices=N, directed=False)
 
-    # Index bookkeeping
+    #Index bookkeeping
     vec_offset = 0
     pos_offset = num_vecs
     entry_offset = pos_offset + n
     kähler_offset = entry_offset + num_entries
     value_offset = kähler_offset + num_distinct_kähler
 
-    # Assign colors
-    # vecs = 0, positions = 1, entries = 2, values = 3, P^1 = 100 P^2 = 200 P^3 = 300
+    #Give colors to nodes
     colors = [0] * num_vecs + [1] * n + [2] * num_entries + [kähler_offset] + [kähler_offset+1] + [kähler_offset+2]
-    # Partition
+    #Partition
     color_classes = {}
     for v, c in enumerate(colors):
         color_classes.setdefault(c, []).append(v)
@@ -151,7 +99,7 @@ def solution_to_graph4071(solution, low=-18, up=18):
     partition = [set(verts) for verts in color_classes.values()]
     g.set_vertex_coloring(partition)
 
-    # Add edges
+    #Add edges
     for i in range(num_vecs):
         for j in range(n):
             entry_idx = entry_offset + i * n + j
@@ -177,30 +125,25 @@ def solution_to_graphcert4071(solution, low=-18, up=18):
     return pynauty.certificate(solution_to_graph4071(solution, low, up))
 
 def solution_to_graph829(solution, low=-18, up=18):
-    """
-    Turn a solution (matrix of shape (num_vecs, n)) into a colored graph
-    where integers in [low, up] are explicitly represented as vertices.
-    """
 
     num_vecs = len(solution)
     n = len(solution[0])
     num_entries = num_vecs * n
     num_values = up - low + 1
 
-    # vertices = vecs + positions + entries + all possible values
+    #vertices = vecs + positions + entries + all possible values
     N = num_vecs + n + num_entries + num_values
     g = pynauty.Graph(number_of_vertices=N, directed=False)
 
-    # Index bookkeeping
+    #Index bookkeeping
     vec_offset = 0
     pos_offset = num_vecs
     entry_offset = pos_offset + n
     value_offset = entry_offset + num_entries
 
-    # Assign colors
-    # vecs = 0, positions = 1, entries = 2, values = 3, P^1 = 100 P^2 = 200 P^3 = 300
+    #Assign colors
     colors = [0] * num_vecs + [1] * n
-    # Partition
+    #Partition
     color_classes = {}
     for v, c in enumerate(colors):
         color_classes.setdefault(c, []).append(v)
@@ -217,7 +160,7 @@ def solution_to_graph829(solution, low=-18, up=18):
     partition = [set(verts) for verts in color_classes.values()]
     g.set_vertex_coloring(partition)
 
-    # Add edges
+    #Add edges
     for i in range(num_vecs):
         for j in range(n):
             entry_idx = entry_offset + i * n + j

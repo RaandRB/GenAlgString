@@ -1,8 +1,6 @@
 from deap import base, creator, tools
 import random
-from pyCICY import CICY
 from scipy import stats
-import time
 import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")

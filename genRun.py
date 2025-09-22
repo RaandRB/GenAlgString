@@ -1,6 +1,7 @@
 from deap import base, creator, tools
 import random
 from pyCICY import CICY
+from scipy import stats
 import time
 import numpy as np
 import matplotlib
@@ -14,7 +15,7 @@ from tqdm import tqdm
 
 
 
-M = M_5302
+M = M_7447
 
 
 creator.create("FitnessMax", base.Fitness, weights=(1.0, 1.0))
@@ -28,7 +29,7 @@ low = -4
 
 up = 4
 
-free_size = 4
+free_size = 2
 
 #How many k's
 LINE_SIZE =  M.len
@@ -45,7 +46,7 @@ toolbox.register("individual", tools.initRepeat, creator.vector_bundle, toolbox.
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 toolbox.register("mate", mate_nested)
-#toolbox.register("mate", tools.cxMessyOnePoint)
+#toolbox.register("mate", tools.cxOnePoint)
 
 toolbox.register("mutate", mutate_nested, low=low, up=up)
 #toolbox.register("mutate", mutate_flat,  low=low, up=up)
@@ -60,7 +61,7 @@ toolbox.register("evaluate", ev_func, M=M, free_size=free_size)
 
 toolbox.register("cert", cert_func, low=-up*4, up=-low*4)
 
-def main(num_pop=300, num_gens=300, plot=True, print_stats=True):
+def main(num_pop=300, num_gens=1000, plot=True, print_stats=True):
 
     stats = tools.Statistics(key=lambda ind: ind.fitness.values)
     stats.register("avg", np.mean)
@@ -70,11 +71,12 @@ def main(num_pop=300, num_gens=300, plot=True, print_stats=True):
     logbook.header = "gen", "avg", "best"
 
     seed = secrets.randbits(32)
-    random.seed(seed)
+    random.seed(12)
     solution_certs = set()
     solution_vectors = []
     nr_sols = []
     best_vec = []
+    test = []
 
     pop = toolbox.population(n=num_pop)
     CXPB, MUTPB, NGEN = 0.6, 0.3, num_gens
@@ -82,6 +84,7 @@ def main(num_pop=300, num_gens=300, plot=True, print_stats=True):
 
     
     fitnesses = toolbox.map(toolbox.evaluate, pop)
+    
 
 
 
@@ -114,11 +117,17 @@ def main(num_pop=300, num_gens=300, plot=True, print_stats=True):
         count_sols = 0
 
         current_best = None
+        curr_test = None
+
+        best_sum1 = 0
+        best_sum2 = 0
+
 
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
             if current_best == None or fit[0] > current_best:
                 current_best = fit[0]
+                curr_test = fit[1]
                 
             vec_sol = tot_bundle(ind)
             if fit[1] == 5:
@@ -129,7 +138,15 @@ def main(num_pop=300, num_gens=300, plot=True, print_stats=True):
                     solution_vectors.append(vec_sol)
         
         record = stats.compile(pop)
+
+        for p in pop:
+            best_sum1 += p.fitness.values[0]
+            best_sum2 += p.fitness.values[1]
+
         best_vec.append(current_best)
+        test.append(curr_test)
+        #best_vec.append(best_sum1/len(pop))
+        #test.append(best_sum2/len(pop))
 
         if print_stats:
            print(f"Generation {g+1}/{NGEN}")
@@ -169,9 +186,9 @@ def main(num_pop=300, num_gens=300, plot=True, print_stats=True):
         labs = [l.get_label() for l in lns]
         ax1.legend(lns, labs, loc="center right")
 
-        plt.savefig("plot.png")
+        plt.savefig("plot2.png")
 
-    return solution_vectors, best_vec, nr_sols
+    return solution_vectors, best_vec, nr_sols, test
 
 def run_genAlg(x):
 
@@ -179,9 +196,9 @@ def run_genAlg(x):
 
 
 if __name__ == "__main__":
-    n_gen_ep = 30
+    n_gen_ep = 100
 
-    episodes = True
+    episodes = False
 
     if episodes:
     
@@ -191,6 +208,7 @@ if __name__ == "__main__":
                 result_vecs.append(result)
 
         fit_vec = [r[1] for r in result_vecs]
+        fit_vec2 = [r[3] for r in result_vecs]
         fit_max = np.max(fit_vec, axis=0)
         fit_mean = np.mean(fit_vec, axis=0)
         fit_min = np.min(fit_vec, axis=0)
@@ -228,7 +246,8 @@ if __name__ == "__main__":
         plt.plot(gen_vec, nrsols_mean, linewidth=2, color='b')
 
         converged = [True if nr[-1] > 0 else False for nr in nrsols_vec]
-        times = []
+        fit1 = []
+        fit2 = []
 
         plt.figure(4)
         thresholds = [-125, -100, -75, -50, -25, -15]
@@ -239,9 +258,10 @@ if __name__ == "__main__":
 
         for n in range(n_gen_ep):
 
-            fit = fit_vec[n][75]
+            fit = fit_vec[n][0]
             
-            times.append(fit)
+            fit1.append(fit)
+            fit2.append(fit_vec2[n][0])
 
             for i, th in enumerate(thresholds):
                 if fit > th:
@@ -260,9 +280,10 @@ if __name__ == "__main__":
             print(f"Converged under {th} at gen 75: {conv_lower[i]*100:0.1f}%")
             print(f"Percentage of non-converged runs contained by threshold: {(count_tot_lower[i] - count_conv_lower[i])/count_nonconv*100:0.1f}%")
 
-        plt.scatter(range(n_gen_ep), times, c=["green" if z else "red" for z in converged], s=80)
+        plt.scatter(fit1, fit2, c=["green" if z else "red" for z in converged], s=80)
 
-        times = []
+        fit1 = []
+        fit2 = []
 
         plt.figure(5)
         count_conv_upper = np.zeros(len(thresholds))
@@ -275,7 +296,8 @@ if __name__ == "__main__":
 
             fit = fit_vec[n][100]
             
-            times.append(fit)
+            fit1.append(fit)
+            fit2.append(fit_vec2[n][100])
 
             for i, th in enumerate(thresholds):
                 if fit > th:
@@ -294,10 +316,11 @@ if __name__ == "__main__":
             print(f"Converged under {th} at gen 100: {conv_lower[i]*100:0.1f}%")
             print(f"Percentage of non-converged runs contained by threshold: {(count_tot_lower[i] - count_conv_lower[i])/count_nonconv*100:0.1f}%")
 
-        plt.scatter(range(n_gen_ep), times, c=["green" if z else "red" for z in converged], s=80)
+        plt.scatter(fit1, fit2, c=["green" if z else "red" for z in converged], s=80)
 
 
-        times = []
+        fit1 = []
+        fit2 = []
 
         plt.figure(6)
 
@@ -308,9 +331,10 @@ if __name__ == "__main__":
 
         for n in range(n_gen_ep):
 
-            fit = fit_vec[n][125]
+            fit = fit_vec[n][150]
             
-            times.append(fit)
+            fit1.append(fit)
+            fit2.append(fit_vec2[n][150])
 
             for i, th in enumerate(thresholds):
                 if fit > th:
@@ -329,10 +353,18 @@ if __name__ == "__main__":
             print(f"Converged under {th} at gen 125: {conv_lower[i]*100:0.1f}%")
             print(f"Percentage of non-converged runs contained by threshold: {(count_tot_lower[i] - count_conv_lower[i])/count_nonconv*100:0.1f}%")
         
-        plt.scatter(range(n_gen_ep), times, c=["green" if z else "red" for z in converged], s=80)
+        plt.scatter(fit1, fit2, c=["green" if z else "red" for z in converged], s=80)
 
         #with open("solutionstest.npy", "wb") as f:
         #    np.save(f, total_sols)
+
+        fit_100_vec = [fit_vec[n][100] for n in range(n_gen_ep)]
+
+        res = stats.ecdf(fit_100_vec)
+
+        plt.figure(7)
+        ax = plt.subplot()
+        res.cdf.plot(ax)
 
         plt.show()
     

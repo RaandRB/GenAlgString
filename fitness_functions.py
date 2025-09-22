@@ -1,16 +1,10 @@
 from deap import base, creator, tools
-from scoop import futures
-import random
 from pyCICY import CICY
 import time
 import itertools
 import numpy as np
-import matplotlib.pyplot as plt
-import sympy as sp
-import z3
 from functions import *
 import pickle
-import scipy
 import collections
 
 
@@ -195,12 +189,12 @@ def cohom_euler_check(M, V, free_size):
 
     result += np.abs(tot_euler + 3*free_size)
 
-    #for e1, e2 in itertools.combinations(V, 2):
-    #    l = np.add(list(e1), list(e2))
-    #    # we round and convert to int otherwise floating point issues
-    #    index = np.round(M.line_co_euler(l)).astype(np.int16)
-    #    if index > 0:
-    #        result += 25
+    for e1, e2 in itertools.combinations(V, 2):
+        l = np.add(list(e1), list(e2))
+        # we round and convert to int otherwise floating point issues
+        index = np.round(M.line_co_euler(l)).astype(np.int16)
+        #if index > 0:
+            #result += 25
 
 
     return -result*10
@@ -233,24 +227,7 @@ def gamma_orbit(L, gamma):
     return orbit
 
 
-def invariant_partition_or_penalty(V, penalty=-100):
-    Gamma = [[1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 1, 0],
-            [0, 0, 1, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 1, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 0, 0, 1]]
-    #Gamma = np.array([
-    #        [0,1,0,0,0,0,0,0],  # J1 -> J2
-    #        [0,0,1,0,0,0,0,0],  # J2 -> J3
-    #        [1,0,0,0,0,0,0,0],  # J3 -> J1
-    #        [0,0,0,0,1,0,0,0],  # J4 -> J5
-    #        [0,0,0,0,0,1,0,0],  # J5 -> J6
-    #        [0,0,0,1,0,0,0,0],  # J6 -> J4
-    #        [0,0,0,0,0,0,1,0],  # J7 fixed
-    #        [0,0,0,0,0,0,0,1],  # J8 fixed
-    #   ])
+def invariant_partition_or_penalty(V, Gamma, penalty=-100):
     V_counter = collections.Counter(map(tuple, V))
     seen = set()
     partitions = []
@@ -287,9 +264,41 @@ def invariant_partition_or_penalty(V, penalty=-100):
     
     return partitions, True
 
-def equiv_nontriv(M, V, free_size):
+def equiv_nontriv829(M, V, free_size):
+    Gamma = np.array([
+            [0,1,0,0,0,0,0,0], 
+            [0,0,1,0,0,0,0,0],  
+            [1,0,0,0,0,0,0,0],  
+            [0,0,0,0,1,0,0,0],  
+            [0,0,0,0,0,1,0,0],  
+            [0,0,0,1,0,0,0,0],  
+            [0,0,0,0,0,0,1,0],  
+            [0,0,0,0,0,0,0,1]])
+    partition, passed = invariant_partition_or_penalty(V, Gamma)
+    score = 0
+    
+    if not passed:
+        return partition
+    
+    for block in partition:
+        block_euler = 0
+        for L in block:
+            block_euler += np.rint(M.line_co_euler(np.array(L)))
 
-    partition, passed = invariant_partition_or_penalty(V)
+        if block_euler%free_size != 0:
+            score -= 20
+
+    return score*50
+
+def equiv_nontriv4071(M, V, free_size):
+    Gamma = [[1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1]]
+    partition, passed = invariant_partition_or_penalty(V, Gamma)
     score = 0
     
     if not passed:
@@ -330,7 +339,9 @@ def evaluate(individual, M, free_size):
 
     return score, passed
 
-def evaluate_nontriv(individual, M, free_size):
+
+
+def evaluate_nontriv829(individual, M, free_size):
 
     ind = np.array(tot_bundle(individual))
 
@@ -338,19 +349,33 @@ def evaluate_nontriv(individual, M, free_size):
     anom_test = anomaly_check(M, ind)
     slope_test = slope_check_article(M, ind)
     cohom_test = cohom_euler_check(M, ind, free_size=free_size)
-    equiv_test = equiv_nontriv(M, ind, free_size=free_size)
+    equiv_test = equiv_nontriv829(M, ind, free_size=free_size)
 
     score = emb_test + anom_test + slope_test + cohom_test + equiv_test
     passed = sum([emb_test==0, anom_test==0, slope_test==0, cohom_test==0, equiv_test==0])
 
     return score, passed
 
+def evaluate_nontriv4071(individual, M, free_size):
+
+    ind = np.array(tot_bundle(individual))
+
+    emb_test = embedding_check(M, ind)
+    anom_test = anomaly_check(M, ind)
+    slope_test = slope_check_article(M, ind)
+    cohom_test = cohom_euler_check(M, ind, free_size=free_size)
+    equiv_test = equiv_nontriv4071(M, ind, free_size=free_size)
+
+    score = emb_test + anom_test + slope_test + cohom_test + equiv_test
+    passed = sum([emb_test==0, anom_test==0, slope_test==0, cohom_test==0, equiv_test==0])
+
+    return score, passed
 
 #Nested mate
 def mate_nested(ind1, ind2):
 
     for row1, row2 in zip(ind1, ind2):
-        tools.cxMessyOnePoint(row1, row2)
+        tools.cxTwoPoint(row1, row2)
     return ind1, ind2
 
 def mutate_nested(ind, low, up, indpb):
@@ -377,11 +402,11 @@ def choose_eval_cert(M):
     
     if M == M_829:
 
-        return solution_to_graph829, evaluate_nontriv
+        return solution_to_graph829, evaluate_nontriv829
     
     if M == M_4071:
         
-        return solution_to_graphcert4071, evaluate_nontriv
+        return solution_to_graphcert4071, evaluate_nontriv4071
 
     
     return solution_to_graphcert, evaluate

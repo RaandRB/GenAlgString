@@ -5,7 +5,6 @@ matplotlib.use("TkAgg")
 from wolframclient.evaluation import WolframLanguageSession
 from wolframclient.language import wl, wlexpr
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 r = 4
 
